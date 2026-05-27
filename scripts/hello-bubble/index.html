@@ -1,0 +1,89 @@
+<!--
+  hello-bubble — NuMarket Bubble Scripts starter example
+  ══════════════════════════════════════════════════════════════════════════════
+  A minimal HTML element showing the standard NuMarket file structure:
+  empty shell markup → scoped CSS → IIFE-wrapped JavaScript.
+
+  Copy this file's content and paste it into a Bubble HTML element to use.
+  ══════════════════════════════════════════════════════════════════════════════
+-->
+
+<div id="nm-hello-bubble" class="nm-hello-bubble">
+  <p class="nm-hello-bubble__text" id="nhb-text"></p>
+</div>
+
+<style>
+  .nm-hello-bubble,
+  .nm-hello-bubble *,
+  .nm-hello-bubble *::before,
+  .nm-hello-bubble *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  .nm-hello-bubble {
+    --nm-color-text:   #1A1A1A;
+    --nm-color-bg:     #F8F5F0;
+    --nm-color-accent: #A28C9F;
+    --nm-spacing-md:   24px;
+    padding: var(--nm-spacing-md);
+    background: var(--nm-color-bg);
+    border-radius: 8px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+
+  .nm-hello-bubble__text {
+    color: var(--nm-color-text);
+    font-size: 16px;
+    font-weight: 500;
+    line-height: 1.5;
+  }
+</style>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── API root detection — works on version-test, version-live, or any branch ──
+  function bubbleApiRoot() {
+    var path = window.location.pathname;
+    var match = path.match(/^\/(version-[^\/]+)/);
+    var versionPrefix = match ? '/' + match[1] : '';
+    return window.location.origin + versionPrefix + '/api/1.1';
+  }
+
+  // ── CONFIG ────────────────────────────────────────────────────────────────
+  var CONFIG = {
+    BUBBLE_API: bubbleApiRoot(),
+    GREETING: 'Hello from NuMarket scripts!',  // Replace with your own config
+  };
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function el(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  function init() {
+    console.log('[hello-bubble] loaded, API root:', CONFIG.BUBBLE_API);
+
+    // Use textContent (not innerHTML) for all data from APIs — prevents XSS.
+    el('nhb-text').textContent = CONFIG.GREETING;
+  }
+
+  // Guard against Bubble's SPA-like navigation re-executing this script
+  if (!window.__nmHelloBubbleInit) {
+    window.__nmHelloBubbleInit = true;
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+  }
+
+})();
+</script>
