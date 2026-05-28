@@ -1,0 +1,224 @@
+<!--
+  campaign-stats-banner — NuMarket Bubble HTML element
+  ────────────────────────────────────────────────────────────────────────────
+  Shows a live three-stat bar on a campaign page:
+    • Total raised (ZAR)
+    • Number of backers
+    • Days remaining
+
+  Reads the campaign slug from the URL path, fetches the campaign record from
+  the Bubble Data API, and fills the three stat slots.
+
+  Paste this file's content into a Bubble HTML element on the campaign page.
+  ────────────────────────────────────────────────────────────────────────────
+-->
+
+<section class="nm-csb" id="nm-csb">
+  <article class="nm-csb__stat">
+    <span class="nm-csb__value" id="csb-raised">—</span>
+    <span class="nm-csb__label">raised</span>
+  </article>
+  <article class="nm-csb__stat">
+    <span class="nm-csb__value" id="csb-backers">—</span>
+    <span class="nm-csb__label">backers</span>
+  </article>
+  <article class="nm-csb__stat">
+    <span class="nm-csb__value" id="csb-days">—</span>
+    <span class="nm-csb__label">days left</span>
+  </article>
+</section>
+
+<style>
+  .nm-csb,
+  .nm-csb *,
+  .nm-csb *::before,
+  .nm-csb *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  .nm-csb {
+    --nm-color-text:   #1A1A1A;
+    --nm-color-label:  #6B6B6B;
+    --nm-color-bg:     #F8F5F0;
+    --nm-color-border: #E0D9D0;
+    --nm-spacing-sm:   12px;
+    --nm-spacing-md:   24px;
+    --nm-spacing-lg:   32px;
+
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: var(--nm-color-bg);
+    border: 1px solid var(--nm-color-border);
+    border-radius: 10px;
+    padding: var(--nm-spacing-md) var(--nm-spacing-lg);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    gap: var(--nm-spacing-md);
+  }
+
+  .nm-csb__stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    flex: 1;
+  }
+
+  .nm-csb__stat + .nm-csb__stat {
+    border-left: 1px solid var(--nm-color-border);
+    padding-left: var(--nm-spacing-md);
+  }
+
+  .nm-csb__value {
+    font-family: 'Recoleta', Georgia, serif;
+    font-weight: 400;
+    font-size: 28px;
+    color: var(--nm-color-text);
+    line-height: 1.1;
+  }
+
+  .nm-csb__label {
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--nm-color-label);
+  }
+
+  .nm-csb--loading .nm-csb__value {
+    color: var(--nm-color-border);
+  }
+
+  .nm-csb--error .nm-csb__value {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--nm-color-label);
+  }
+
+  @media (max-width: 767px) {
+    .nm-csb {
+      padding: var(--nm-spacing-sm) var(--nm-spacing-md);
+      gap: var(--nm-spacing-sm);
+    }
+    .nm-csb__value { font-size: 22px; }
+    .nm-csb__stat + .nm-csb__stat { padding-left: var(--nm-spacing-sm); }
+  }
+</style>
+
+<script>
+(function () {
+  'use strict';
+
+  function bubbleApiRoot() {
+    var path = window.location.pathname;
+    var match = path.match(/^\/(version-[^\/]+)/);
+    var versionPrefix = match ? '/' + match[1] : '';
+    return window.location.origin + versionPrefix + '/api/1.1';
+  }
+
+  var CONFIG = {
+    BUBBLE_API:    bubbleApiRoot(),
+    DATA_TYPE:     'campaign',
+    FIELDS: {
+      slug:        'Slug',
+      totalRaised: 'total_raised_number',
+      backerCount: 'backer_count_number',
+      deadline:    'deadline_date',
+    },
+    CURRENCY: 'R',
+  };
+
+  function el(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function formatRand(amount) {
+    if (amount >= 1000000) return CONFIG.CURRENCY + (amount / 1000000).toFixed(1) + 'M';
+    if (amount >= 1000)    return CONFIG.CURRENCY + (amount / 1000).toFixed(1) + 'k';
+    return CONFIG.CURRENCY + Math.round(amount).toLocaleString('en-ZA');
+  }
+
+  function daysLeft(deadlineStr) {
+    var deadline = new Date(deadlineStr);
+    var now = new Date();
+    var diff = Math.ceil((deadline - now) / (1000 * 60 * 60 * 24));
+    return diff > 0 ? diff : 0;
+  }
+
+  function getCampaignSlug() {
+    return window.location.pathname.split('/').filter(Boolean).pop();
+  }
+
+  var S = { slug: null, loading: false };
+
+  function setStats(raised, backers, days) {
+    el('csb-raised').textContent  = formatRand(raised);
+    el('csb-backers').textContent = Number(backers).toLocaleString('en-ZA');
+    el('csb-days').textContent    = days;
+    el('nm-csb').classList.remove('nm-csb--loading', 'nm-csb--error');
+  }
+
+  function setError() {
+    el('csb-raised').textContent  = 'unavailable';
+    el('csb-backers').textContent = '';
+    el('csb-days').textContent    = '';
+    el('nm-csb').classList.remove('nm-csb--loading');
+    el('nm-csb').classList.add('nm-csb--error');
+    console.warn('[campaign-stats-banner] failed to load stats for slug:', S.slug);
+  }
+
+  function loadStats() {
+    S.slug = getCampaignSlug();
+    if (!S.slug || S.loading) return;
+    S.loading = true;
+    el('nm-csb').classList.add('nm-csb--loading');
+
+    var url = CONFIG.BUBBLE_API + '/obj/' + CONFIG.DATA_TYPE
+      + '?constraints=' + encodeURIComponent(JSON.stringify([
+          { key: CONFIG.FIELDS.slug, constraint_type: 'equals', value: S.slug }
+        ]))
+      + '&limit=1';
+
+    fetch(url, { cache: 'no-store' })
+      .then(function (res) {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        S.loading = false;
+        var results = data && data.response && data.response.results;
+        if (!results || results.length === 0) { setError(); return; }
+        var c = results[0];
+        setStats(
+          c[CONFIG.FIELDS.totalRaised] || 0,
+          c[CONFIG.FIELDS.backerCount] || 0,
+          c[CONFIG.FIELDS.deadline] ? daysLeft(c[CONFIG.FIELDS.deadline]) : '—'
+        );
+        console.log('[campaign-stats-banner] loaded stats for:', S.slug);
+      })
+      .catch(function (err) {
+        S.loading = false;
+        console.error('[campaign-stats-banner] fetch error:', err);
+        setError();
+      });
+  }
+
+  function init() { loadStats(); }
+
+  if (!window.__nmCampaignStatsBannerInit) {
+    window.__nmCampaignStatsBannerInit = true;
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', init);
+    } else {
+      init();
+    }
+    window.addEventListener('popstate', loadStats);
+  }
+
+})();
+</script>
